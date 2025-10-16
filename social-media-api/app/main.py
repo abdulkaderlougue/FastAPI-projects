@@ -1,9 +1,10 @@
 
+from typing import List
 from fastapi import FastAPI, Response, status, HTTPException, Depends
 import uvicorn
 import models
 from database import engine, get_db
-from schemas import Post, User
+from schemas import PostBase, PostCreate, PostResponse, User
 from sqlalchemy.orm import Session
 
 models.Base.metadata.create_all(bind=engine)
@@ -14,17 +15,17 @@ api = FastAPI()
 async def home():
     return {"message": "Welcome to the social media api"}
 
-@api.get("/posts")
+@api.get("/posts", response_model=List[PostResponse])
 async def get_posts(db: Session = Depends(get_db)):
     # cursor.execute('''SELECT * FROM posts ''')
     # posts = cursor.fetchall()
     posts = db.query(models.Post).all()
     # with open(JSON_DB, 'r') as f:
     #     my_posts = json.load(f)
-    return {'data': posts}
+    return posts # {'data': posts}
 
-@api.post('/posts', status_code=status.HTTP_201_CREATED)
-async def create_posts(post: Post, db: Session = Depends(get_db)): # payload: dict = Body(...) convert payload to dict
+@api.post('/posts', status_code=status.HTTP_201_CREATED, response_model=PostResponse)
+async def create_posts(post: PostCreate, db: Session = Depends(get_db)): # payload: dict = Body(...) convert payload to dict
     # post_dict = post.model_dump() # convert to dict
     # post_dict['id'] = random.randint(1,100000000)
     # # my_posts.append(post_dict)
@@ -45,9 +46,9 @@ async def create_posts(post: Post, db: Session = Depends(get_db)): # payload: di
 
     db.commit() # save the change
     db.refresh(new_post) # refresh the post and return it
-    return {'data': new_post}
+    return new_post #{'data': new_post}
 
-@api.get("/posts/{id}")
+@api.get("/posts/{id}", response_model=PostResponse)
 async def get_post(id: int, db: Session = Depends(get_db)):
     # post = find_post(id)
     # cursor.execute(''' SELECT * FROM posts Where id= %s ''', (str(id),)) # the extra comma fixed issue where when id is more than 9
@@ -62,7 +63,7 @@ async def get_post(id: int, db: Session = Depends(get_db)):
         # return {'message': "post is not found"}
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
                             detail=f"Post with id: {id} was not found")
-    return {'data': post}
+    return post #{'data': post}
 
 @api.delete('/posts/{id}')
 async def delete_post(id: int, db: Session = Depends(get_db)):
@@ -89,8 +90,8 @@ async def delete_post(id: int, db: Session = Depends(get_db)):
     
     # return Response(status_code= status.HTTP_204_NO_CONTENT, content=f'Failed to delete post {id}')
 
-@api.put('/posts/{id}')
-async def update_post(id: int, upd_post: Post, db: Session = Depends(get_db)):
+@api.put('/posts/{id}', response_model=PostResponse)
+async def update_post(id: int, upd_post: PostBase, db: Session = Depends(get_db)):
     # post = find_post(id)
 
     # cursor.execute('''UPDATE posts SET title = %s, content= %s, published=%s WHERE id=%s RETURNING *''', 
@@ -105,7 +106,7 @@ async def update_post(id: int, upd_post: Post, db: Session = Depends(get_db)):
     post_query.update(upd_post.model_dump(), synchronize_session=False)
     db.commit()
     # conn.commit()
-    return {"message": "The post has been updated successfully", "data": post_query.first()}
+    return post_query.first() # {"message": "The post has been updated successfully", "data": post_query.first()}
 
 @api.get('/users')
 async def get_users():
