@@ -1,89 +1,62 @@
-import random, os, json, time
-from dotenv import load_dotenv
-from fastapi import FastAPI, Response, status, HTTPException
+
+from fastapi import FastAPI, Response, status, HTTPException, Depends
 import uvicorn
-from pydantic import BaseModel
+import models
+from database import engine, get_db
+from schemas import Post, User
+from sqlalchemy.orm import Session
 
-import psycopg2 # postgressdb
-from psycopg2.extras import RealDictCursor
-
-class User(BaseModel):
-    id: int
-    name: str
-    email: str
-    password: str
-    # phone_number:
-
-class Post(BaseModel):
-    title: str
-    content: str
-    published: bool = True
-    # rating: int | None = None # Optional[int] = None
-
-# JSON_DB = 'posts.json'
-
-# with open(JSON_DB, 'r') as f:
-#     my_posts = json.load(f)
-
-# # my_posts = []
-
-load_dotenv()
-db_name = os.getenv('DB_NAME')
-db_host = os.getenv('DB_HOST')
-db_user = os.getenv('DB_USER')
-db_pass = os.getenv('DB_PASS')
-while True:
-    try:
-        # Connect to your postgres DB
-        conn = psycopg2.connect(host=db_host, database=db_name, user=db_user,
-                                password=db_pass, cursor_factory=RealDictCursor) # cursor_factory will add the headers/keys
-        cursor = conn.cursor()
-        print("Database connection successful")
-        break
-    except Exception as e:
-        print("Connection to database failed")
-        print("Error: ", e)
-        time.sleep(3)
-
+models.Base.metadata.create_all(bind=engine)
 
 api = FastAPI()
-
 
 @api.get('/')
 async def home():
     return {"message": "Welcome to the social media api"}
 
 @api.get("/posts")
-async def get_posts():
-    cursor.execute('''SELECT * FROM posts ''')
-    posts = cursor.fetchall()
-
+async def get_posts(db: Session = Depends(get_db)):
+    # cursor.execute('''SELECT * FROM posts ''')
+    # posts = cursor.fetchall()
+    posts = db.query(models.Post).all()
     # with open(JSON_DB, 'r') as f:
     #     my_posts = json.load(f)
     return {'data': posts}
 
 @api.post('/posts', status_code=status.HTTP_201_CREATED)
-async def create_posts(post: Post): # payload: dict = Body(...) convert payload to dict
+async def create_posts(post: Post, db: Session = Depends(get_db)): # payload: dict = Body(...) convert payload to dict
     # post_dict = post.model_dump() # convert to dict
     # post_dict['id'] = random.randint(1,100000000)
     # # my_posts.append(post_dict)
 
     # write_to_json_db(post_dict)
 
-    cursor.execute('''INSERT INTO posts (title, content, published) VALUES (%s, %s, %s) RETURNING *''', 
-                   (post.title, post.content, post.published)
-                )
-    new_post = cursor.fetchone()
-    # commit the change to the db
-    conn.commit()
+    # cursor.execute('''INSERT INTO posts (title, content, published) VALUES (%s, %s, %s) RETURNING *''', 
+    #                (post.title, post.content, post.published)
+    #             )
+    # new_post = cursor.fetchone()
+    # # commit the change to the db
+    # conn.commit()
+
+    # create the new post with the sqlalchemy model, passing the kwards args to parse the args from the dict
+    new_post = models.Post(**post.model_dump())
+
+    db.add(new_post) # add the post to the db
+
+    db.commit() # save the change
+    db.refresh(new_post) # refresh the post and return it
     return {'data': new_post}
 
 @api.get("/posts/{id}")
-async def get_post(id: int):
+async def get_post(id: int, db: Session = Depends(get_db)):
     # post = find_post(id)
-    cursor.execute(''' SELECT * FROM posts Where id= %s ''', (str(id),)) # the extra comma fixed issue where when id is more than 9
-    post = cursor.fetchone()
+    # cursor.execute(''' SELECT * FROM posts Where id= %s ''', (str(id),)) # the extra comma fixed issue where when id is more than 9
+    # post = cursor.fetchone()
 
+    post = db.query(models.Post).filter(models.Post.id == id).first()  # or below
+    # post = db.query(models.Post).get(id)
+
+    # print(post)
     if not post:
         # response.status_code = status.HTTP_404_NOT_FOUND
         # return {'message': "post is not found"}
@@ -92,18 +65,24 @@ async def get_post(id: int):
     return {'data': post}
 
 @api.delete('/posts/{id}')
-async def delete_post(id: int):
+async def delete_post(id: int, db: Session = Depends(get_db)):
     # post = find_post(id)
 
-    cursor.execute('''DELETE  FROM posts WHERE id= %s RETURNING  *''', (str(id),))
-    deleted_post = cursor.fetchone()
-    if not deleted_post:
+    # cursor.execute('''DELETE  FROM posts WHERE id= %s RETURNING  *''', (str(id),))
+    # deleted_post = cursor.fetchone()
+
+    deleted_post = db.query(models.Post).filter(models.Post.id == id)
+    # print(deleted_post)
+    if deleted_post.first() == None:
         raise HTTPException(
             status_code= status.HTTP_404_NOT_FOUND,
             detail= f"Deletion failed! Post with id {id} not found"
         )
     
-    conn.commit()
+    deleted_post.delete(synchronize_session=False)
+    db.commit()
+
+    # conn.commit()
     # is_deleted = remove_post(id)
     # if is_deleted:
     return Response(status_code= status.HTTP_204_NO_CONTENT, content=f'Successfully deleted post {id}')
@@ -111,19 +90,22 @@ async def delete_post(id: int):
     # return Response(status_code= status.HTTP_204_NO_CONTENT, content=f'Failed to delete post {id}')
 
 @api.put('/posts/{id}')
-async def update_post(id: int, upd_post: Post):
+async def update_post(id: int, upd_post: Post, db: Session = Depends(get_db)):
     # post = find_post(id)
 
-    cursor.execute('''UPDATE posts SET title = %s, content= %s, published=%s WHERE id=%s RETURNING *''', 
-                   (upd_post.title, upd_post.content, upd_post.published,str(id) ))
-    updated_post = cursor.fetchone()
-    if not updated_post:
+    # cursor.execute('''UPDATE posts SET title = %s, content= %s, published=%s WHERE id=%s RETURNING *''', 
+    #                (upd_post.title, upd_post.content, upd_post.published,str(id) ))
+    # updated_post = cursor.fetchone()
+
+    post_query = db.query(models.Post).filter(models.Post.id == id)
+    if post_query.first() == None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
                             detail=f"Update failed! Post with id {id} not found")  
     
-
-    conn.commit()
-    return {"message": "The post has been updated successfully", "data": updated_post}
+    post_query.update(upd_post.model_dump(), synchronize_session=False)
+    db.commit()
+    # conn.commit()
+    return {"message": "The post has been updated successfully", "data": post_query.first()}
 
 @api.get('/users')
 async def get_users():
