@@ -5,9 +5,12 @@ from sqlalchemy.orm import Session
 from typing import List
 from database import get_db
 
-router = APIRouter()
+router = APIRouter(
+    prefix='/posts',
+    tags=['Post']
+)
 
-@router.get("/posts", response_model=List[PostResponse])
+@router.get("/", response_model=List[PostResponse])
 async def get_posts(db: Session = Depends(get_db)):
     # cursor.execute('''SELECT * FROM posts ''')
     # posts = cursor.fetchall()
@@ -16,7 +19,7 @@ async def get_posts(db: Session = Depends(get_db)):
     #     my_posts = json.load(f)
     return posts # {'data': posts}
 
-@router.post('/posts', status_code=status.HTTP_201_CREATED, response_model=PostResponse)
+@router.post('/', status_code=status.HTTP_201_CREATED, response_model=PostResponse)
 async def create_posts(post: PostCreate, db: Session = Depends(get_db)): # payload: dict = Body(...) convert payload to dict
     # post_dict = post.model_dump() # convert to dict
     # post_dict['id'] = random.randint(1,100000000)
@@ -40,7 +43,7 @@ async def create_posts(post: PostCreate, db: Session = Depends(get_db)): # paylo
     db.refresh(new_post) # refresh the post and return it
     return new_post #{'data': new_post}
 
-@router.get("/posts/{id}", response_model=PostResponse)
+@router.get("/{id}", response_model=PostResponse)
 async def get_post(id: int, db: Session = Depends(get_db)):
     # post = find_post(id)
     # cursor.execute(''' SELECT * FROM posts Where id= %s ''', (str(id),)) # the extra comma fixed issue where when id is more than 9
@@ -57,7 +60,7 @@ async def get_post(id: int, db: Session = Depends(get_db)):
                             detail=f"Post with id: {id} was not found")
     return post #{'data': post}
 
-@router.delete('/posts/{id}')
+@router.delete('/{id}')
 async def delete_post(id: int, db: Session = Depends(get_db)):
     # post = find_post(id)
 
@@ -82,7 +85,7 @@ async def delete_post(id: int, db: Session = Depends(get_db)):
     
     # return Response(status_code= status.HTTP_204_NO_CONTENT, content=f'Failed to delete post {id}')
 
-@router.put('/posts/{id}', response_model=PostResponse)
+@router.put('/{id}', response_model=PostResponse)
 async def update_post(id: int, upd_post: PostBase, db: Session = Depends(get_db)):
     # post = find_post(id)
 
