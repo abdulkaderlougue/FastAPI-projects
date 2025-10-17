@@ -4,7 +4,7 @@ from fastapi import FastAPI, Response, status, HTTPException, Depends
 import uvicorn
 import models
 from database import engine, get_db
-from schemas import PostBase, PostCreate, PostResponse, User
+from schemas import PostBase, PostCreate, PostResponse, UserCreate, UserResponse
 from sqlalchemy.orm import Session
 
 models.Base.metadata.create_all(bind=engine)
@@ -108,13 +108,27 @@ async def update_post(id: int, upd_post: PostBase, db: Session = Depends(get_db)
     # conn.commit()
     return post_query.first() # {"message": "The post has been updated successfully", "data": post_query.first()}
 
-@api.get('/users')
-async def get_users():
-    return {'data': 'These are the users'}
+@api.get('/users', response_model=List[UserResponse])
+async def get_users(db: Session = Depends(get_db)):
+    users = db.query(models.User).all()
+    return users
 
-@api.get('users/{id}')
-async def get_user_by_id(id: int):
-    return User
+@api.get('/users/{id}', response_model=UserResponse)
+async def get_user_by_id(id: int, db: Session = Depends(get_db)):
+    user = db.query(models.User).get(id)
+
+    if user == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
+                            detail=f"User with id: {id} was not found")
+    return user
+
+@api.post('/users', status_code=status.HTTP_201_CREATED, response_model=UserResponse)
+def create_user(user: UserCreate, db: Session = Depends(get_db)):
+    new_user = models.User(**user.model_dump())
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
 
 if __name__ == "__main__":
     uvicorn.run(api)
