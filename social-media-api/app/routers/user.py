@@ -30,6 +30,12 @@ async def get_user_by_id(id: int, db: Session = Depends(get_db)):
 
 @router.post('/', status_code=status.HTTP_201_CREATED, response_model=UserResponse)
 def create_user(user: UserCreate, db: Session = Depends(get_db)):
+    # is user available
+    is_user_exist = db.query(models.User).filter(models.User.email == user.email).first()
+    if is_user_exist:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, 
+                            detail=f"User with email: {user.email} already exists")
+    
     # hash the password
     user.password = utils.get_password_hash(user.password)
 
