@@ -1,0 +1,7 @@
+fastapi[all]
+uvicorn
+python-jose[cryptography]
+pwdlib[Argon2]
+pydantic
+pydantic_settings 
+sqlalchemy

@@ -1,1 +1,20 @@
 uvicorn main:app --reload
+
+Traditional: we talk to db by writting SQL queries
+fastAPI <------> database
+create tables in the database yourself
+
+
+ORM: we talk with ORM and it translates to SQL queries
+        PYTHON        psycopg/SQL
+fastAPI <------> ORM <------> database
+define our tables as python models
+sqlalchemy ==> most popular, still need to pip install a db that you want to use e.i. psycopg2, mysql
+                cannot update the db with a new column, you need to delete the table then it will recreate it which cant be done in production ==> use migration tool like Alembic which works with sqlalchemy
+auth: session based and jwt (stored in user client)
+jwt: 
+login(u,pass) to api --> api verify if valid --> sendback token to client
+/post {token} --> valid token --> send data to client
+Note: token is not encripted so be caareful sending cinfidential info 
+header.payloaddata.verifysignature
+HMACSHA256(base64UrlEncode(header)+"."+base64UrlEncode(payload), you-256-bitsecret)

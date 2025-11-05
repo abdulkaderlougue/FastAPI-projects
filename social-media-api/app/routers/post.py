@@ -22,7 +22,7 @@ async def get_posts(db: Session = Depends(get_db), limit: int = 10, skip: int = 
     return posts # {'data': posts}
 
 @router.post('/', status_code=status.HTTP_201_CREATED, response_model=PostResponse)
-async def create_posts(post: PostCreate, db: Session = Depends(get_db), current_user: int = Depends(get_current_user)): # payload: dict = Body(...) convert payload to dict
+async def create_posts(post: PostCreate, db: Session = Depends(get_db), current_user: schemas.UserResponse = Depends(get_current_user)): # payload: dict = Body(...) convert payload to dict
     """ Create a post, user needs to be authenticated to do so"""
     # post_dict = post.model_dump() # convert to dict
     # post_dict['id'] = random.randint(1,100000000)
@@ -98,7 +98,7 @@ async def delete_post(id: int, db: Session = Depends(get_db), current_user: sche
     # return Response(status_code= status.HTTP_204_NO_CONTENT, content=f'Failed to delete post {id}')
 
 @router.put('/{id}', response_model=PostResponse)
-async def update_post(id: int, upd_post: PostBase, db: Session = Depends(get_db), current_user: int = Depends(get_current_user)):
+async def update_post(id: int, upd_post: PostBase, db: Session = Depends(get_db), current_user: schemas.UserResponse = Depends(get_current_user)):
     # post = find_post(id)
 
     # cursor.execute('''UPDATE posts SET title = %s, content= %s, published=%s WHERE id=%s RETURNING *''', 
